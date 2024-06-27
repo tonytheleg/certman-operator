@@ -115,22 +115,14 @@ func (r *CertificateRequestReconciler) IssueCertificate(reqLogger logr.Logger, c
 			return fmt.Errorf("Could not get authorization key for dns challenge")
 		}
 
-		var fqdn string
-		if !fedramp {
-			dnsZone, err := r.FindZoneIDForChallenge(cr.Namespace)
-			if err != nil {
-				return err
-			}
+		dnsZone, err := r.FindZoneIDForChallenge(cr.Namespace)
+		if err != nil {
+			return err
+		}
 
-			fqdn, err = dnsClient.AnswerDNSChallenge(reqLogger, DNS01KeyAuthorization, domain, cr, dnsZone)
-			if err != nil {
-				return err
-			}
-		} else {
-			fqdn, err = dnsClient.AnswerDNSChallenge(reqLogger, DNS01KeyAuthorization, domain, cr, "")
-			if err != nil {
-				return err
-			}
+		fqdn, err := dnsClient.AnswerDNSChallenge(reqLogger, DNS01KeyAuthorization, domain, cr, dnsZone)
+		if err != nil {
+			return err
 		}
 
 		// don't try verifying DNS while in testing
@@ -229,6 +221,10 @@ func (r *CertificateRequestReconciler) IssueCertificate(reqLogger logr.Logger, c
 }
 
 func (r *CertificateRequestReconciler) FindZoneIDForChallenge(namespace string) (string, error) {
+	if fedramp {
+		return fedrampHostedZoneID, nil
+	}
+
 	dnsZones := hivev1.DNSZoneList{}
 	err := r.Client.List(context.TODO(), &dnsZones, &client.ListOptions{Namespace: namespace})
 	if err != nil {
